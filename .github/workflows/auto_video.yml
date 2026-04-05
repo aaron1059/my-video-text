@@ -4,8 +4,8 @@ on:
     branches:
       - main
     paths:
-      - my_text.txt  # 仅修改my_text.txt时触发
-  workflow_dispatch: {}  # 支持手动触发
+      - my_text.txt
+  workflow_dispatch: {}
 
 jobs:
   build:
@@ -14,10 +14,18 @@ jobs:
       - name: 拉取代码
         uses: actions/checkout@v4
 
-      - name: 安装依赖
+      - name: 安装系统依赖（ffmpeg）
         run: |
-          pip install requests pillow moviepy
-          sudo apt-get update && sudo apt-get install -y ffmpeg
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: 安装Python依赖（强制升级pip，确保moviepy安装成功）
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests pillow moviepy --no-cache-dir
+
+      - name: 验证moviepy安装
+        run: python -c "import moviepy.editor; print('moviepy安装成功')"
 
       - name: 执行视频生成脚本
         run: python .github/workflows/auto_video.py
