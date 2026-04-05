@@ -1,4 +1,4 @@
-name: 纯GitHub文字转视频（微信直链版）
+name: 文字转视频（稳定版）
 on:
   push:
     branches:
@@ -11,20 +11,22 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: 拉取代码
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: 安装系统依赖（ffmpeg）
+      - name: 安装依赖
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
-
-      - name: 安装Python依赖
-        run: |
           python -m pip install --upgrade pip
-          pip install pillow requests --no-cache-dir
+          pip install pillow requests
 
-      - name: 执行视频生成脚本
+      - name: 生成视频
         run: python .github/workflows/auto_video.py
         env:
           SCKEY: ${{ secrets.SCKEY }}
+
+      - name: 保存视频
+        uses: actions/upload-artifact@v4
+        with:
+          name: output-video
+          path: /tmp/output.mp4
