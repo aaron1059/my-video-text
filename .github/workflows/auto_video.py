@@ -19,12 +19,11 @@ def get_text():
 
 # -------------------------- 2. 生成文字图片 + ffmpeg合成视频 --------------------------
 def text_to_video(text):
-    # 1. 生成9:16竖屏背景图（适配微信）
     width, height = 1080, 1920
     img = Image.new("RGB", (width, height), color=(20, 20, 40))
     draw = ImageDraw.Draw(img)
 
-    # 2. 加载中文字体（兼容所有环境）
+    # 加载中文字体
     font_paths = [
         "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
         "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
@@ -40,7 +39,7 @@ def text_to_video(text):
     if not font:
         font = ImageFont.load_default(size=70)
 
-    # 3. 自动换行排版
+    # 自动换行
     lines = []
     for line in text.split("\n"):
         while line:
@@ -50,7 +49,7 @@ def text_to_video(text):
                     line = line[i:]
                     break
 
-    # 4. 居中绘制文字
+    # 居中绘制
     y = height // 2 - len(lines) * 50
     for line in lines:
         text_width = draw.textlength(line, font=font)
@@ -58,11 +57,10 @@ def text_to_video(text):
         draw.text((x, y), line, font=font, fill=(255, 255, 255))
         y += 100
 
-    # 5. 保存图片
     img_path = "/tmp/frame.png"
     img.save(img_path)
 
-    # 6. 用ffmpeg生成5秒无声视频
+    # 生成5秒视频
     video_path = "/tmp/output.mp4"
     cmd = [
         "ffmpeg", "-y", "-loop", "1", "-i", img_path,
@@ -72,26 +70,34 @@ def text_to_video(text):
     subprocess.run(cmd, check=True, capture_output=True)
     return video_path
 
-# -------------------------- 3. Server酱推送微信（直接推GitHub Actions链接） --------------------------
-def push_wechat(text):
+# -------------------------- 3. 上传到Catbox（支持视频直链，微信直接播放） --------------------------
+def upload_to_catbox(video_path):
+    url = "https://catbox.moe/user/api.php"
+    files = {"fileToUpload": open(video_path, "rb")}
+    data = {"reqtype": "fileupload"}
+    response = requests.post(url, files=files, data=data, timeout=30)
+    # Catbox直接返回直链，无需解析
+    video_url = response.text.strip()
+    if video_url.startswith("https://"):
+        return video_url
+    raise Exception(f"Catbox上传失败：{video_url}")
+
+# -------------------------- 4. Server酱推送微信（直链直接点开播放） --------------------------
+def push_wechat(text, video_url):
     today = datetime.now().strftime("%Y-%m-%d")
-    # 直接推送当前Actions运行页面，你可以从这里下载视频
-    # （GitHub会自动生成artifact下载链接，无需第三方图床）
-    run_url = os.environ.get("GITHUB_SERVER_URL") + "/" + os.environ.get("GITHUB_REPOSITORY") + "/actions/runs/" + os.environ.get("GITHUB_RUN_ID")
-    
     content = f"""
-✅ 你的文字已自动生成视频！
+✅ 你的文字视频已生成！微信直接点开就能看👇
 
 【文案内容】
 {text}
 
-【视频下载链接】
-{run_url}
+【视频直链】
+{video_url}
 
-👉 操作步骤：
-1. 点开链接，进入Actions页面
-2. 点击「Artifacts」→「output-video」下载视频
-3. 保存到手机，发朋友圈/视频号
+👉 操作：
+1. 直接点上面的链接，微信里直接播放
+2. 长按视频 → 保存到手机
+3. 发朋友圈/视频号
 """
     resp = requests.post(
         f"https://sctapi.ftqq.com/{SCKEY}.send",
@@ -107,10 +113,12 @@ def push_wechat(text):
 if __name__ == "__main__":
     try:
         text = get_text()
-        print(f"✅ 读取到的文字：{text}")
+        print(f"✅ 读取文字：{text}")
         video_path = text_to_video(text)
         print(f"✅ 视频生成完成：{video_path}")
-        push_wechat(text)
+        video_url = upload_to_catbox(video_path)
+        print(f"✅ 视频直链：{video_url}")
+        push_wechat(text, video_url)
         print("✅ 全流程完成！")
     except Exception as e:
         print(f"❌ 流程失败：{e}")
