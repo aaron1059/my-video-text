@@ -19,12 +19,12 @@ def get_text():
 
 # -------------------------- 2. 生成文字图片 + ffmpeg合成视频 --------------------------
 def text_to_video(text):
-    # 1. 生成9:16竖屏背景图（适配微信朋友圈/视频号）
+    # 1. 生成9:16竖屏背景图（适配微信）
     width, height = 1080, 1920
     img = Image.new("RGB", (width, height), color=(20, 20, 40))
     draw = ImageDraw.Draw(img)
 
-    # 2. 加载中文字体（兼容GitHub Actions所有环境）
+    # 2. 加载中文字体（兼容所有环境）
     font_paths = [
         "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
         "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
@@ -62,7 +62,7 @@ def text_to_video(text):
     img_path = "/tmp/frame.png"
     img.save(img_path)
 
-    # 6. 用ffmpeg生成5秒无声视频（100%稳定）
+    # 6. 用ffmpeg生成5秒无声视频
     video_path = "/tmp/output.mp4"
     cmd = [
         "ffmpeg", "-y", "-loop", "1", "-i", img_path,
@@ -72,45 +72,26 @@ def text_to_video(text):
     subprocess.run(cmd, check=True, capture_output=True)
     return video_path
 
-# -------------------------- 3. 上传视频到免费图床 --------------------------
-def upload_to_free_host(video_path):
-    # 主图床：sm.ms
-    url = "https://sm.ms/api/v2/upload"
-    try:
-        with open(video_path, "rb") as f:
-            files = {"smfile": f}
-            response = requests.post(url, files=files, timeout=30)
-            result = response.json()
-        if result["code"] == "success":
-            return result["data"]["url"]
-    except Exception as e:
-        print(f"sm.ms上传失败，尝试备用图床: {e}")
-    
-    # 备用图床：freeimage.host
-    url = "https://freeimage.host/api/1/upload"
-    params = {"key": "6d207e02198a891b966d7f997e135dd8", "action": "upload"}
-    with open(video_path, "rb") as f:
-        files = {"source": f}
-        response = requests.post(url, files=files, data=params, timeout=30)
-        result = response.json()
-    return result["image"]["url"]
-
-# -------------------------- 4. Server酱推送微信 --------------------------
-def push_wechat(text, video_url):
+# -------------------------- 3. Server酱推送微信（直接推GitHub Actions链接） --------------------------
+def push_wechat(text):
     today = datetime.now().strftime("%Y-%m-%d")
+    # 直接推送当前Actions运行页面，你可以从这里下载视频
+    # （GitHub会自动生成artifact下载链接，无需第三方图床）
+    run_url = os.environ.get("GITHUB_SERVER_URL") + "/" + os.environ.get("GITHUB_REPOSITORY") + "/actions/runs/" + os.environ.get("GITHUB_RUN_ID")
+    
     content = f"""
 ✅ 你的文字已自动生成视频！
 
 【文案内容】
 {text}
 
-【视频链接】
-{video_url}
+【视频下载链接】
+{run_url}
 
 👉 操作步骤：
-1. 点开链接播放
-2. 长按视频 → 保存到手机
-3. 去微信朋友圈/视频号发布
+1. 点开链接，进入Actions页面
+2. 点击「Artifacts」→「output-video」下载视频
+3. 保存到手机，发朋友圈/视频号
 """
     resp = requests.post(
         f"https://sctapi.ftqq.com/{SCKEY}.send",
@@ -129,9 +110,7 @@ if __name__ == "__main__":
         print(f"✅ 读取到的文字：{text}")
         video_path = text_to_video(text)
         print(f"✅ 视频生成完成：{video_path}")
-        video_url = upload_to_free_host(video_path)
-        print(f"✅ 视频链接：{video_url}")
-        push_wechat(text, video_url)
+        push_wechat(text)
         print("✅ 全流程完成！")
     except Exception as e:
         print(f"❌ 流程失败：{e}")
