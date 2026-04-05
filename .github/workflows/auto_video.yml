@@ -1,4 +1,4 @@
-name: 纯GitHub文字转视频（最终100%成功版）
+name: 纯GitHub文字转视频（微信直链版）
 on:
   push:
     branches:
@@ -28,10 +28,3 @@ jobs:
         run: python .github/workflows/auto_video.py
         env:
           SCKEY: ${{ secrets.SCKEY }}
-
-      - name: 上传视频到GitHub Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: output-video
-          path: /tmp/output.mp4
-          retention-days: 30
