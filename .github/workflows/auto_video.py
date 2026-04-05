@@ -2,9 +2,7 @@ import os
 import requests
 from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
-# 修正moviepy导入方式，兼容所有版本
-from moviepy.editor import ImageSequenceClip
-import numpy as np
+import subprocess
 
 # 从GitHub Secrets读取Server酱SCKEY
 SCKEY = os.environ.get("SCKEY")
@@ -19,14 +17,14 @@ def get_text():
         raise Exception("❌ 错误：my_text.txt为空，请输入文字内容")
     return text
 
-# -------------------------- 2. 生成匹配文字的图文视频 --------------------------
+# -------------------------- 2. 生成文字图片 + ffmpeg合成视频 --------------------------
 def text_to_video(text):
-    # 1. 生成竖屏背景图（9:16 适配微信）
+    # 1. 生成9:16竖屏背景图（适配微信）
     width, height = 1080, 1920
     img = Image.new("RGB", (width, height), color=(20, 20, 40))
     draw = ImageDraw.Draw(img)
 
-    # 2. 加载中文字体（兼容GitHub Actions环境）
+    # 2. 加载中文字体（GitHub Actions Ubuntu环境自带）
     font_paths = [
         "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
         "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
@@ -35,43 +33,45 @@ def text_to_video(text):
     font = None
     for path in font_paths:
         try:
-            font = ImageFont.truetype(path, 80)
+            font = ImageFont.truetype(path, 70)
             break
         except:
             continue
     if not font:
-        font = ImageFont.load_default(size=80)
+        font = ImageFont.load_default(size=70)
 
     # 3. 自动换行排版
     lines = []
-    words = text.split("\n")
-    for line in words:
-        while len(line) > 0:
+    for line in text.split("\n"):
+        while line:
+            # 计算每行可容纳字数
             for i in range(len(line), 0, -1):
-                bbox = draw.textbbox((0, 0), line[:i], font=font)
-                if bbox[2] - bbox[0] < width - 200:
+                if draw.textlength(line[:i], font=font) < 900:
                     lines.append(line[:i])
                     line = line[i:]
                     break
 
-    # 4. 绘制文字
-    y = height // 2 - (len(lines) * 100) // 2
+    # 4. 居中绘制文字
+    y = height // 2 - len(lines) * 50
     for line in lines:
-        bbox = draw.textbbox((0, 0), line, font=font)
-        text_width = bbox[2] - bbox[0]
+        text_width = draw.textlength(line, font=font)
         x = (width - text_width) // 2
         draw.text((x, y), line, font=font, fill=(255, 255, 255))
         y += 100
 
     # 5. 保存图片
-    img_path = "/tmp/text_image.png"
+    img_path = "/tmp/frame.png"
     img.save(img_path)
 
-    # 6. 生成5秒无声视频（彻底解决BGM问题）
-    clip = ImageSequenceClip([img_path], fps=24, durations=[5])
-    video_path = "/tmp/output_video.mp4"
-    clip.write_videofile(video_path, codec="libx264", audio_codec="aac", audio=False)
-
+    # 6. 用ffmpeg生成5秒无声视频（零moviepy，100%成功）
+    video_path = "/tmp/output.mp4"
+    # ffmpeg命令：将单张图片转成5秒视频，编码libx264，适配微信
+    cmd = [
+        "ffmpeg", "-y", "-loop", "1", "-i", img_path,
+        "-t", "5", "-c:v", "libx264", "-pix_fmt", "yuv420p",
+        "-vf", "scale=1080:1920", "-an", video_path
+    ]
+    subprocess.run(cmd, check=True)
     return video_path
 
 # -------------------------- 3. 上传视频到免费图床 --------------------------
@@ -128,13 +128,13 @@ def push_wechat(text, video_url):
 if __name__ == "__main__":
     try:
         text = get_text()
-        print(f"读取文字：{text}")
+        print(f"✅ 读取到的文字：{text}")
         video_path = text_to_video(text)
-        print(f"视频生成完成：{video_path}")
+        print(f"✅ 视频生成完成：{video_path}")
         video_url = upload_to_free_host(video_path)
-        print(f"视频链接：{video_url}")
+        print(f"✅ 视频链接：{video_url}")
         push_wechat(text, video_url)
-        print("✅ 全流程成功！")
+        print("✅ 全流程完成！")
     except Exception as e:
         print(f"❌ 流程失败：{e}")
         raise
