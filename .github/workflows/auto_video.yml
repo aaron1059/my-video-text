@@ -1,4 +1,4 @@
-name: 文字转视频（最终可下载版）
+name: 文字转视频（终极100%成功版）
 on:
   push:
     branches:
@@ -32,5 +32,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: output-video
-          path: /tmp/output.mp4
+          path: output.mp4
           retention-days: 30
