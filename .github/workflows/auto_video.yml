@@ -1,0 +1,25 @@
+name: 纯GitHub文字转视频并推送微信
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - my_text.txt  # 仅修改my_text.txt时触发
+  workflow_dispatch: {}  # 支持手动触发
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 安装依赖
+        run: |
+          pip install requests pillow moviepy
+          sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: 执行视频生成脚本
+        run: python .github/workflows/auto_video.py
+        env:
+          SCKEY: ${{ secrets.SCKEY }}
