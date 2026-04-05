@@ -1,4 +1,4 @@
-name: 纯GitHub文字转视频并推送微信
+name: 纯GitHub文字转视频（零moviepy版）
 on:
   push:
     branches:
@@ -14,18 +14,10 @@ jobs:
       - name: 拉取代码
         uses: actions/checkout@v4
 
-      - name: 安装系统依赖（ffmpeg）
+      - name: 安装系统依赖（仅ffmpeg，无Python库依赖）
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
-
-      - name: 安装Python依赖（强制升级pip，确保moviepy安装成功）
-        run: |
-          python -m pip install --upgrade pip
-          pip install requests pillow moviepy --no-cache-dir
-
-      - name: 验证moviepy安装
-        run: python -c "import moviepy.editor; print('moviepy安装成功')"
 
       - name: 执行视频生成脚本
         run: python .github/workflows/auto_video.py
