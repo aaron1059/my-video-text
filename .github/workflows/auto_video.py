@@ -19,12 +19,12 @@ def get_text():
 
 # -------------------------- 2. 生成文字图片 + ffmpeg合成视频 --------------------------
 def text_to_video(text):
-    # 1. 生成9:16竖屏背景图（适配微信）
+    # 1. 生成9:16竖屏背景图（适配微信朋友圈/视频号）
     width, height = 1080, 1920
     img = Image.new("RGB", (width, height), color=(20, 20, 40))
     draw = ImageDraw.Draw(img)
 
-    # 2. 加载中文字体（GitHub Actions Ubuntu环境自带）
+    # 2. 加载中文字体（兼容GitHub Actions所有环境）
     font_paths = [
         "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
         "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
@@ -44,7 +44,6 @@ def text_to_video(text):
     lines = []
     for line in text.split("\n"):
         while line:
-            # 计算每行可容纳字数
             for i in range(len(line), 0, -1):
                 if draw.textlength(line[:i], font=font) < 900:
                     lines.append(line[:i])
@@ -63,15 +62,14 @@ def text_to_video(text):
     img_path = "/tmp/frame.png"
     img.save(img_path)
 
-    # 6. 用ffmpeg生成5秒无声视频（零moviepy，100%成功）
+    # 6. 用ffmpeg生成5秒无声视频（100%稳定）
     video_path = "/tmp/output.mp4"
-    # ffmpeg命令：将单张图片转成5秒视频，编码libx264，适配微信
     cmd = [
         "ffmpeg", "-y", "-loop", "1", "-i", img_path,
         "-t", "5", "-c:v", "libx264", "-pix_fmt", "yuv420p",
         "-vf", "scale=1080:1920", "-an", video_path
     ]
-    subprocess.run(cmd, check=True)
+    subprocess.run(cmd, check=True, capture_output=True)
     return video_path
 
 # -------------------------- 3. 上传视频到免费图床 --------------------------
@@ -117,7 +115,7 @@ def push_wechat(text, video_url):
     resp = requests.post(
         f"https://sctapi.ftqq.com/{SCKEY}.send",
         data={
-            "title": f"📽️ AI视频生成完成 {today}",
+            "title": f"📽️ 视频生成完成 {today}",
             "desp": content
         }, timeout=15
     )
